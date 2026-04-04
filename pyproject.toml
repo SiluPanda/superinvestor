@@ -49,7 +49,7 @@ dev = [
 ]
 
 [project.scripts]
-superinvestor = "superinvestor.cli:app"
+superinvestor = "superinvestor.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/SiluPanda/superinvestor"

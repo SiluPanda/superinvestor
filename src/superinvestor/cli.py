@@ -1,24 +1,26 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from collections.abc import Coroutine
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.markdown import Markdown
+from rich.panel import Panel
 
-app = typer.Typer(name="superinvestor")
+app = typer.Typer(name="superinvestor", help="AI-powered quantitative trading agent harness")
+console = Console()
 
 
-@app.callback(invoke_without_command=True)
-def main(ctx: typer.Context) -> None:
-    """AI-powered quantitative trading agent harness."""
-    if ctx.invoked_subcommand is None:
+def main() -> None:
+    """Entrypoint: launch TUI if no subcommand, otherwise delegate to Typer."""
+    if len(sys.argv) == 1:
         from superinvestor.tui.app import SuperInvestorApp
 
         SuperInvestorApp().run()
-console = Console()
+    else:
+        app()
 
 
 def _run_async(coro: Coroutine[object, object, None]) -> None:

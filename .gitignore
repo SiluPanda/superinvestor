@@ -9,8 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
-# Environment files
+# Environment / config files
 .env
+config.toml
 *.db
 
 # Testing / linting caches

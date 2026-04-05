@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
 import sys
 from collections.abc import Coroutine
 
@@ -84,6 +86,19 @@ async def _analyze(ticker: str, stream: bool) -> None:
                     console.print(f"  [dim]... and {len(result.reasoning_steps) - 10} more[/dim]")
     finally:
         await stack.close()
+
+
+@app.command()
+def configure() -> None:
+    """Open the configuration file in your editor."""
+    from superinvestor.config import CONFIG_PATH, ensure_config
+
+    created = ensure_config()
+    if created:
+        console.print(f"Created config at {CONFIG_PATH}")
+
+    editor = os.environ.get("EDITOR", "vim")
+    subprocess.run([editor, str(CONFIG_PATH)])
 
 
 @app.command()

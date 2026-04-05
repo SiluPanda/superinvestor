@@ -1,6 +1,6 @@
 [project]
 name = "superinvestor-ai"
-version = "0.2.0"
+version = "0.3.0"
 description = "AI-powered quantitative trading agent harness"
 readme = "README.md"
 license = "MIT"
@@ -36,9 +36,11 @@ dependencies = [
 
 [project.optional-dependencies]
 openai = ["openai-agents>=0.13"]
+openrouter = ["openai>=1.0"]
 google = ["google-adk>=1.28"]
 all = [
     "openai-agents>=0.13",
+    "openai>=1.0",
     "google-adk>=1.28",
 ]
 dev = [

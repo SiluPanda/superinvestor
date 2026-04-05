@@ -6,6 +6,8 @@ from collections.abc import AsyncIterator
 
 from superinvestor.agents.prompts import ANALYST_PROMPTS
 from superinvestor.agents.providers.anthropic import AnthropicProvider
+from superinvestor.agents.providers.deepinfra import DeepInfraProvider
+from superinvestor.agents.providers.openrouter import OpenRouterProvider
 from superinvestor.models.agent import AgentEvent, TaskResult
 from superinvestor.models.enums import AnalystRole, EventKind
 
@@ -20,7 +22,7 @@ _DEFAULT_ROLES: list[AnalystRole] = [
 
 
 async def run_analysis(
-    provider: AnthropicProvider,
+    provider: AnthropicProvider | OpenRouterProvider | DeepInfraProvider,
     tickers: list[str],
     analyst_roles: list[AnalystRole] | None = None,
 ) -> TaskResult:
@@ -130,7 +132,7 @@ async def run_analysis(
 
 
 async def stream_analysis(
-    provider: AnthropicProvider,
+    provider: AnthropicProvider | OpenRouterProvider | DeepInfraProvider,
     tickers: list[str],
     analyst_roles: list[AnalystRole] | None = None,
 ) -> AsyncIterator[AgentEvent]:

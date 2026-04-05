@@ -97,6 +97,8 @@ class ProviderName(StrEnum):
     CLAUDE = "claude"
     OPENAI = "openai"
     GOOGLE = "google"
+    OPENROUTER = "openrouter"
+    DEEPINFRA = "deepinfra"
 
 
 class EventKind(StrEnum):

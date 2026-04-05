@@ -2727,7 +2727,7 @@ wheels = [
 
 [[package]]
 name = "superinvestor-ai"
-version = "0.1.1"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
@@ -2745,6 +2745,7 @@ dependencies = [
 [package.optional-dependencies]
 all = [
     { name = "google-adk" },
+    { name = "openai" },
     { name = "openai-agents" },
 ]
 dev = [
@@ -2759,6 +2760,9 @@ google = [
 openai = [
     { name = "openai-agents" },
 ]
+openrouter = [
+    { name = "openai" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -2769,6 +2773,8 @@ requires-dist = [
     { name = "google-adk", marker = "extra == 'google'", specifier = ">=1.28" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "mcp", specifier = ">=1.0" },
+    { name = "openai", marker = "extra == 'all'", specifier = ">=1.0" },
+    { name = "openai", marker = "extra == 'openrouter'", specifier = ">=1.0" },
     { name = "openai-agents", marker = "extra == 'all'", specifier = ">=0.13" },
     { name = "openai-agents", marker = "extra == 'openai'", specifier = ">=0.13" },
     { name = "pydantic", specifier = ">=2.0" },
@@ -2781,7 +2787,7 @@ requires-dist = [
     { name = "textual-plotext", specifier = ">=0.2" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["openai", "google", "all", "dev"]
+provides-extras = ["openai", "openrouter", "google", "all", "dev"]
 
 [[package]]
 name = "tenacity"

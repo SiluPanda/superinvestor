@@ -29,6 +29,12 @@ CONFIG_TEMPLATE = """\
 # openai_model = "gpt-4o"
 # google_api_key = ""
 # google_model = "gemini-2.0-flash"
+# openrouter_api_key = ""
+# openrouter_model = "anthropic/claude-sonnet-4"
+# openrouter_base_url = "https://openrouter.ai/api/v1"
+# deepinfra_api_key = ""
+# deepinfra_model = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+# deepinfra_base_url = "https://api.deepinfra.com/v1/openai"
 
 # -- Data Sources --
 # polygon_api_key = ""
@@ -108,6 +114,8 @@ class Settings(BaseSettings):
     anthropic_base_url: str = ""
     openai_api_key: str = ""
     google_api_key: str = ""
+    openrouter_api_key: str = ""
+    deepinfra_api_key: str = ""
     polygon_api_key: str = ""
     fred_api_key: str = ""
 
@@ -115,6 +123,10 @@ class Settings(BaseSettings):
     claude_model: str = "claude-sonnet-4-20250514"
     openai_model: str = "gpt-4o"
     google_model: str = "gemini-2.0-flash"
+    openrouter_model: str = "anthropic/claude-sonnet-4"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    deepinfra_model: str = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    deepinfra_base_url: str = "https://api.deepinfra.com/v1/openai"
 
     # Rate limits per data provider
     polygon_rate_limit: int = 5  # calls per minute (Polygon free tier)

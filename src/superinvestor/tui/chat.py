@@ -12,6 +12,8 @@ from superinvestor.tui.commands import dispatch, parse_command
 
 if TYPE_CHECKING:
     from superinvestor.agents.providers.anthropic import AnthropicProvider
+    from superinvestor.agents.providers.deepinfra import DeepInfraProvider
+    from superinvestor.agents.providers.openrouter import OpenRouterProvider
     from superinvestor.mcp.client import McpManager
 
 logger = logging.getLogger(__name__)
@@ -35,7 +37,7 @@ class ChatSession:
 
     def __init__(
         self,
-        provider: AnthropicProvider,
+        provider: AnthropicProvider | OpenRouterProvider | DeepInfraProvider,
         mcp_manager: McpManager,
     ) -> None:
         self._provider = provider

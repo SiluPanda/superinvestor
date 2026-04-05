@@ -59,6 +59,13 @@ def create_stack(settings: Settings | None = None) -> DataStack:
             f"Only {ProviderName.CLAUDE!r} is currently implemented."
         )
 
+    if not s.anthropic_api_key:
+        raise ValueError(
+            "Anthropic API key is not set. "
+            "Set the SUPERINVESTOR_ANTHROPIC_API_KEY environment variable "
+            "or add it to a .env file in your working directory."
+        )
+
     polygon = PolygonProvider(
         api_key=s.polygon_api_key,
         rate_limit=s.polygon_rate_limit,

@@ -18,6 +18,16 @@ class TestProviderValidation:
         with pytest.raises(ValueError, match="Unsupported provider"):
             create_stack(settings)
 
+    def test_empty_api_key_raises(self) -> None:
+        settings = Settings(
+            provider=ProviderName.CLAUDE,
+            polygon_api_key="fake",
+            anthropic_api_key="",
+            fred_api_key="fake",
+        )
+        with pytest.raises(ValueError, match="SUPERINVESTOR_ANTHROPIC_API_KEY"):
+            create_stack(settings)
+
     def test_claude_provider_accepted(self) -> None:
         settings = Settings(
             provider=ProviderName.CLAUDE,

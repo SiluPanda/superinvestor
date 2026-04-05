@@ -80,7 +80,6 @@ class SuperInvestorApp(App[None]):
     ChatInput {
         dock: bottom;
         margin: 0 1;
-        border-top: solid $surface-lighten-2;
     }
 
     SidePanel {

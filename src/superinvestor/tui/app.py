@@ -18,6 +18,7 @@ from superinvestor.tui.widgets.message_list import (
     AssistantMessage,
     LoopStatus,
     MessageList,
+    ThinkingIndicator,
     ToolIndicator,
 )
 from superinvestor.tui.widgets.side_panel import SidePanel
@@ -90,6 +91,14 @@ class SuperInvestorApp(App[None]):
         color: #5f8787;
     }
 
+    ThinkingIndicator {
+        dock: bottom;
+        height: auto;
+        padding: 0 2;
+        color: #5f8787;
+        display: none;
+    }
+
     LoopStatus {
         dock: bottom;
         height: auto;
@@ -157,6 +166,7 @@ class SuperInvestorApp(App[None]):
         with Horizontal(id="main-layout"):
             with Vertical(id="chat-area"):
                 yield MessageList()
+                yield ThinkingIndicator(id="thinking")
                 yield LoopStatus(id="loop-status")
                 yield ChatInput()
             yield SidePanel()
@@ -220,11 +230,12 @@ class SuperInvestorApp(App[None]):
 
         self._busy = True
         msg_list = self.query_one(MessageList)
+        thinking = self.query_one("#thinking", ThinkingIndicator)
         assistant_msg: AssistantMessage | None = None
         accumulated = ""
         current_tool: ToolIndicator | None = None
 
-        msg_list.show_thinking("Thinking")
+        thinking.show("Thinking")
 
         try:
             async for event in self.session.send(text):
@@ -233,13 +244,12 @@ class SuperInvestorApp(App[None]):
                     if accumulated:
                         assistant_msg = None
                         accumulated = ""
-                    msg_list.hide_thinking()
                     msg_list.add_system_message(f"● {event.content}")
-                    msg_list.show_thinking("Analyzing")
+                    thinking.show("Analyzing")
                     current_tool = None
 
                 elif event.kind.value == "text_delta":
-                    msg_list.hide_thinking()
+                    thinking.hide()
                     if assistant_msg is None:
                         assistant_msg = msg_list.add_assistant_message()
                     accumulated += event.content
@@ -248,7 +258,7 @@ class SuperInvestorApp(App[None]):
 
                 elif event.kind.value == "tool_call":
                     tool_name = event.tool_name or event.content
-                    msg_list.show_thinking(_tool_label(tool_name))
+                    thinking.show(_tool_label(tool_name))
                     current_tool = msg_list.add_tool_indicator(tool_name)
 
                 elif event.kind.value == "tool_result":
@@ -256,20 +266,20 @@ class SuperInvestorApp(App[None]):
                         label = str(current_tool.render())
                         current_tool.update(label.replace("...", " done"))
                         current_tool = None
-                    msg_list.show_thinking("Thinking")
+                    thinking.show("Thinking")
 
                 elif event.kind.value == "error":
-                    msg_list.hide_thinking()
+                    thinking.hide()
                     msg_list.add_system_message(f"[red]Error: {event.content}[/red]")
 
                 elif event.kind.value == "done":
-                    msg_list.hide_thinking()
+                    thinking.hide()
 
         except Exception as exc:
             logger.error("Error processing input: %s", exc, exc_info=True)
             msg_list.add_system_message(f"[red]Error: {exc}[/red]")
         finally:
-            msg_list.hide_thinking()
+            thinking.hide()
             self._busy = False
 
         # Refresh side panel after any command that might have changed data.

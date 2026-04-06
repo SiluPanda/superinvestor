@@ -12,7 +12,7 @@ from pydantic_settings import (
 
 from superinvestor.models.enums import ProviderName
 
-CONFIG_DIR = Path.home() / ".config" / "superinvestor"
+CONFIG_DIR = Path.home() / ".superinvestor"
 CONFIG_PATH = CONFIG_DIR / "config.toml"
 
 CONFIG_TEMPLATE = """\
@@ -21,7 +21,7 @@ CONFIG_TEMPLATE = """\
 # take precedence over values in this file.
 
 # -- AI Provider --
-# provider = "CLAUDE"
+# provider = "claude"
 # anthropic_api_key = ""
 # anthropic_base_url = ""
 # claude_model = "claude-sonnet-4-20250514"
@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     All variables are prefixed with ``SUPERINVESTOR_``. For example,
     ``anthropic_api_key`` maps to ``SUPERINVESTOR_ANTHROPIC_API_KEY``.
     A ``.env`` file in the working directory is also loaded if present.
-    A TOML config file at ``~/.config/superinvestor/config.toml`` is
+    A TOML config file at ``~/.superinvestor/config.toml`` is
     also read (env vars take precedence).
     """
 

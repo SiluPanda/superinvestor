@@ -277,15 +277,20 @@ class SuperInvestorApp(App[None]):
 
         except Exception as exc:
             logger.error("Error processing input: %s", exc, exc_info=True)
-            msg_list.add_system_message(f"[red]Error: {exc}[/red]")
+            msg_list.add_system_message(
+                f"[red]Error ({type(exc).__name__}): {exc}[/red]"
+            )
         finally:
             thinking.hide()
             self._busy = False
 
         # Refresh side panel after any command that might have changed data.
-        if self.db_conn is not None:
-            panel = self.query_one(SidePanel)
-            await panel.refresh_data(self.db_conn)
+        try:
+            if self.db_conn is not None:
+                panel = self.query_one(SidePanel)
+                await panel.refresh_data(self.db_conn)
+        except Exception:
+            logger.debug("Side panel refresh failed", exc_info=True)
 
     # ------------------------------------------------------------------
     # Loop

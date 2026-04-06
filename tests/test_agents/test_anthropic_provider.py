@@ -133,7 +133,7 @@ class TestToolSchemas:
     def test_schemas_are_valid(self) -> None:
         from superinvestor.agents.tools import TOOL_SCHEMAS
 
-        assert len(TOOL_SCHEMAS) == 12
+        assert len(TOOL_SCHEMAS) == 19
         for schema in TOOL_SCHEMAS:
             assert "name" in schema
             assert "description" in schema

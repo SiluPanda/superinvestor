@@ -77,7 +77,7 @@ def create_stack(settings: Settings | None = None) -> DataStack:
     )
     edgar = EdgarProvider(rate_limit=s.edgar_rate_limit)
     fred = FredProvider(api_key=s.fred_api_key, rate_limit=s.fred_rate_limit)
-    tools = DomainTools(polygon=polygon, edgar=edgar, fred=fred)
+    tools = DomainTools(polygon=polygon, edgar=edgar, fred=fred, db_path=s.db_path)
 
     if s.provider == ProviderName.CLAUDE:
         if not s.anthropic_api_key:

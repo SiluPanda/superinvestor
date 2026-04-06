@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -25,10 +26,12 @@ class DomainTools:
         polygon: PolygonProvider,
         edgar: EdgarProvider,
         fred: FredProvider,
+        db_path: Path | None = None,
     ) -> None:
         self._polygon = polygon
         self._edgar = edgar
         self._fred = fred
+        self._db_path = db_path
 
     async def dispatch(self, tool_name: str, args: dict[str, Any]) -> str:
         """Dispatch a tool call by name. Returns JSON string result."""
@@ -188,6 +191,227 @@ class DomainTools:
         for sid, obs in snapshot.items():
             result[sid] = str(obs.value) if obs and obs.value is not None else None
         return json.dumps(result)
+
+    # ------------------------------------------------------------------
+    # Storage tools (watchlist, thesis)
+    # ------------------------------------------------------------------
+
+    async def add_to_watchlist(
+        self, ticker: str, notes: str = "", tags: list[str] | None = None
+    ) -> str:
+        """Add a ticker to the user's watchlist with optional notes and tags."""
+        if self._db_path is None:
+            return json.dumps({"error": "Database not configured"})
+        from superinvestor.models.watchlist import WatchlistItem
+        from superinvestor.store.db import Database
+        from superinvestor.store.watchlist_store import WatchlistStore
+
+        t = ticker.upper().strip()
+        db = Database(self._db_path)
+        try:
+            await db.connect()
+            store = WatchlistStore(db.conn)
+            if await store.exists(t):
+                return json.dumps({"success": False, "message": f"{t} is already on the watchlist"})
+            await store.insert(WatchlistItem(ticker=t, notes=notes, tags=tags or []))
+            return json.dumps({"success": True, "ticker": t, "message": f"Added {t} to watchlist"})
+        finally:
+            await db.close()
+
+    async def remove_from_watchlist(self, ticker: str) -> str:
+        """Remove a ticker from the user's watchlist."""
+        if self._db_path is None:
+            return json.dumps({"error": "Database not configured"})
+        from superinvestor.store.db import Database
+        from superinvestor.store.watchlist_store import WatchlistStore
+
+        t = ticker.upper().strip()
+        db = Database(self._db_path)
+        try:
+            await db.connect()
+            store = WatchlistStore(db.conn)
+            item = await store.get_by_ticker(t)
+            if item is None:
+                return json.dumps({"success": False, "message": f"{t} is not on the watchlist"})
+            await store.delete_by_id(item.id)
+            return json.dumps({"success": True, "ticker": t, "message": f"Removed {t} from watchlist"})
+        finally:
+            await db.close()
+
+    async def get_watchlist(self) -> str:
+        """Get all tickers currently on the user's watchlist."""
+        if self._db_path is None:
+            return json.dumps({"error": "Database not configured"})
+        from superinvestor.store.db import Database
+        from superinvestor.store.watchlist_store import WatchlistStore
+
+        db = Database(self._db_path)
+        try:
+            await db.connect()
+            store = WatchlistStore(db.conn)
+            items = await store.get_all()
+            return json.dumps([
+                {"id": i.id, "ticker": i.ticker, "notes": i.notes, "tags": i.tags}
+                for i in items
+            ])
+        finally:
+            await db.close()
+
+    async def save_thesis(
+        self,
+        ticker: str,
+        title: str,
+        bull_case: str,
+        bear_case: str,
+        catalysts: list[str] | None = None,
+        risks: list[str] | None = None,
+        target_price: str | None = None,
+        time_horizon_months: int | None = None,
+        confidence_score: float = 0.5,
+    ) -> str:
+        """Save an investment thesis for a ticker."""
+        if self._db_path is None:
+            return json.dumps({"error": "Database not configured"})
+        from decimal import Decimal, InvalidOperation
+
+        from superinvestor.models.thesis import InvestmentThesis
+        from superinvestor.store.db import Database
+        from superinvestor.store.thesis_store import ThesisStore
+
+        db = Database(self._db_path)
+        try:
+            await db.connect()
+            store = ThesisStore(db.conn)
+            try:
+                tp = Decimal(target_price) if target_price else None
+            except InvalidOperation:
+                return json.dumps({"error": f"Invalid target_price: {target_price!r}"})
+            thesis = InvestmentThesis(
+                ticker=ticker.upper().strip(),
+                title=title,
+                bull_case=bull_case,
+                bear_case=bear_case,
+                catalysts=catalysts or [],
+                risks=risks or [],
+                target_price=tp,
+                time_horizon_months=time_horizon_months,
+                confidence_score=max(0.0, min(1.0, confidence_score)),
+            )
+            await store.insert(thesis)
+            return json.dumps({
+                "success": True,
+                "thesis_id": thesis.id,
+                "ticker": thesis.ticker,
+                "message": f"Thesis '{title}' saved for {thesis.ticker}",
+            })
+        finally:
+            await db.close()
+
+    async def update_thesis(
+        self,
+        thesis_id: str,
+        status: str | None = None,
+        title: str | None = None,
+        bull_case: str | None = None,
+        bear_case: str | None = None,
+        catalysts: list[str] | None = None,
+        risks: list[str] | None = None,
+        target_price: str | None = None,
+        confidence_score: float | None = None,
+        time_horizon_months: int | None = None,
+    ) -> str:
+        """Update one or more fields of an existing investment thesis."""
+        if self._db_path is None:
+            return json.dumps({"error": "Database not configured"})
+        from superinvestor.store.db import Database
+        from superinvestor.store.thesis_store import ThesisStore
+
+        updates: dict[str, object] = {}
+        if status is not None:
+            updates["status"] = status
+        if title is not None:
+            updates["title"] = title
+        if bull_case is not None:
+            updates["bull_case"] = bull_case
+        if bear_case is not None:
+            updates["bear_case"] = bear_case
+        if catalysts is not None:
+            updates["catalysts"] = catalysts
+        if risks is not None:
+            updates["risks"] = risks
+        if target_price is not None:
+            updates["target_price"] = target_price
+        if confidence_score is not None:
+            updates["confidence_score"] = max(0.0, min(1.0, confidence_score))
+        if time_horizon_months is not None:
+            updates["time_horizon_months"] = time_horizon_months
+
+        if not updates:
+            return json.dumps({"success": False, "message": "No fields to update were provided"})
+
+        db = Database(self._db_path)
+        try:
+            await db.connect()
+            store = ThesisStore(db.conn)
+            ok = await store.update_by_id(thesis_id, **updates)
+            if not ok:
+                return json.dumps({"success": False, "message": f"Thesis {thesis_id!r} not found"})
+            return json.dumps({
+                "success": True,
+                "thesis_id": thesis_id,
+                "updated_fields": list(updates.keys()),
+            })
+        finally:
+            await db.close()
+
+    async def delete_thesis(self, thesis_id: str) -> str:
+        """Permanently delete an investment thesis by its ID."""
+        if self._db_path is None:
+            return json.dumps({"error": "Database not configured"})
+        from superinvestor.store.db import Database
+        from superinvestor.store.thesis_store import ThesisStore
+
+        db = Database(self._db_path)
+        try:
+            await db.connect()
+            store = ThesisStore(db.conn)
+            ok = await store.delete_by_id(thesis_id)
+            if not ok:
+                return json.dumps({"success": False, "message": f"Thesis {thesis_id!r} not found"})
+            return json.dumps({"success": True, "thesis_id": thesis_id, "message": "Thesis deleted"})
+        finally:
+            await db.close()
+
+    async def list_theses(self, ticker: str | None = None) -> str:
+        """List saved investment theses, optionally filtered by ticker."""
+        if self._db_path is None:
+            return json.dumps({"error": "Database not configured"})
+        from superinvestor.store.db import Database
+        from superinvestor.store.thesis_store import ThesisStore
+
+        db = Database(self._db_path)
+        try:
+            await db.connect()
+            store = ThesisStore(db.conn)
+            if ticker:
+                items = await store.get_active(ticker.upper().strip())
+            else:
+                items = await store.get_all_active()
+            return json.dumps([
+                {
+                    "id": t.id,
+                    "ticker": t.ticker,
+                    "title": t.title,
+                    "status": t.status.value,
+                    "confidence_score": t.confidence_score,
+                    "target_price": str(t.target_price) if t.target_price else None,
+                    "time_horizon_months": t.time_horizon_months,
+                    "created_at": t.created_at.isoformat(),
+                }
+                for t in items
+            ])
+        finally:
+            await db.close()
 
 
 # ------------------------------------------------------------------
@@ -356,6 +580,147 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "query": {"type": "string", "description": "Search query (company name or ticker)"}
             },
             "required": ["query"],
+        },
+    },
+    # ------------------------------------------------------------------
+    # Storage tools
+    # ------------------------------------------------------------------
+    {
+        "name": "add_to_watchlist",
+        "description": "Add a stock ticker to the user's watchlist. Call this when the user asks to watch, track, or save a stock.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {"type": "string", "description": "Stock ticker symbol (e.g., AAPL)"},
+                "notes": {"type": "string", "description": "Optional notes about why this ticker is being watched"},
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional tags for categorisation (e.g., ['tech', 'high-growth'])",
+                },
+            },
+            "required": ["ticker"],
+        },
+    },
+    {
+        "name": "remove_from_watchlist",
+        "description": "Remove a stock ticker from the user's watchlist.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {"type": "string", "description": "Stock ticker symbol to remove"}
+            },
+            "required": ["ticker"],
+        },
+    },
+    {
+        "name": "get_watchlist",
+        "description": "Get all tickers currently on the user's watchlist, including notes and tags.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "save_thesis",
+        "description": (
+            "Save a new investment thesis for a stock. Use this after completing analysis when the "
+            "user asks to save or record their thesis, or when you have formed a well-supported view."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {"type": "string", "description": "Stock ticker symbol"},
+                "title": {"type": "string", "description": "Short descriptive title for the thesis"},
+                "bull_case": {"type": "string", "description": "Arguments supporting a bullish view"},
+                "bear_case": {"type": "string", "description": "Arguments supporting a bearish view or key risks"},
+                "catalysts": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Upcoming events or factors that could unlock value",
+                },
+                "risks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Key risks that could invalidate the thesis",
+                },
+                "target_price": {
+                    "type": "string",
+                    "description": "Price target as a decimal string (e.g., '185.50')",
+                },
+                "time_horizon_months": {
+                    "type": "integer",
+                    "description": "Investment time horizon in months (e.g., 12 for one year)",
+                },
+                "confidence_score": {
+                    "type": "number",
+                    "description": "Conviction level from 0.0 (none) to 1.0 (maximum). Default 0.5.",
+                },
+            },
+            "required": ["ticker", "title", "bull_case", "bear_case"],
+        },
+    },
+    {
+        "name": "update_thesis",
+        "description": (
+            "Update one or more fields of an existing investment thesis. "
+            "Use list_theses first to get the thesis ID."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "thesis_id": {"type": "string", "description": "ID of the thesis to update (from list_theses)"},
+                "status": {
+                    "type": "string",
+                    "enum": ["active", "archived", "invalidated", "realized"],
+                    "description": "New status for the thesis",
+                },
+                "title": {"type": "string", "description": "Updated title"},
+                "bull_case": {"type": "string", "description": "Updated bull case"},
+                "bear_case": {"type": "string", "description": "Updated bear case"},
+                "catalysts": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Updated list of catalysts",
+                },
+                "risks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Updated list of risks",
+                },
+                "target_price": {"type": "string", "description": "Updated price target as a decimal string"},
+                "confidence_score": {
+                    "type": "number",
+                    "description": "Updated conviction level from 0.0 to 1.0",
+                },
+                "time_horizon_months": {
+                    "type": "integer",
+                    "description": "Updated time horizon in months",
+                },
+            },
+            "required": ["thesis_id"],
+        },
+    },
+    {
+        "name": "delete_thesis",
+        "description": "Permanently delete an investment thesis. Use list_theses to get the thesis ID first.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "thesis_id": {"type": "string", "description": "ID of the thesis to delete"}
+            },
+            "required": ["thesis_id"],
+        },
+    },
+    {
+        "name": "list_theses",
+        "description": "List saved investment theses. Optionally filter by ticker to see theses for a specific stock.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string",
+                    "description": "Filter by ticker symbol (omit to list all active theses)",
+                }
+            },
+            "required": [],
         },
     },
 ]

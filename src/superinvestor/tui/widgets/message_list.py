@@ -52,6 +52,18 @@ class ToolIndicator(Static):
     """
 
 
+class LoopStatus(Static):
+    """Status bar shown when a recurring loop is active."""
+
+    DEFAULT_CSS = """
+    LoopStatus {
+        padding: 0 2;
+        color: #5f8787;
+        display: none;
+    }
+    """
+
+
 class MessageList(VerticalScroll):
     """Scrollable list of chat messages."""
 

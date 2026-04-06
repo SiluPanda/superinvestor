@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from textual.app import App, ComposeResult
@@ -15,6 +16,7 @@ from superinvestor.tui.commands import parse_command
 from superinvestor.tui.widgets.chat_input import ChatInput
 from superinvestor.tui.widgets.message_list import (
     AssistantMessage,
+    LoopStatus,
     MessageList,
     ToolIndicator,
 )
@@ -77,6 +79,14 @@ class SuperInvestorApp(App[None]):
         color: #5f8787;
     }
 
+    LoopStatus {
+        dock: bottom;
+        height: auto;
+        padding: 0 2;
+        color: #5f8787;
+        display: none;
+    }
+
     ChatInput {
         dock: bottom;
         margin: 0 1;
@@ -128,11 +138,15 @@ class SuperInvestorApp(App[None]):
         self.mcp_manager = McpManager()
         self.session: ChatSession | None = None
         self._busy = False
+        self._loop_task: asyncio.Task[None] | None = None
+        self._loop_prompt: str = ""
+        self._loop_interval: float = 0.0
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="main-layout"):
             with Vertical(id="chat-area"):
                 yield MessageList()
+                yield LoopStatus(id="loop-status")
                 yield ChatInput()
             yield SidePanel()
 
@@ -154,6 +168,7 @@ class SuperInvestorApp(App[None]):
         self.query_one(ChatInput).focus()
 
     async def on_unmount(self) -> None:
+        self.stop_loop()
         if self.session:
             self.session = None
         await self.mcp_manager.close()
@@ -240,6 +255,87 @@ class SuperInvestorApp(App[None]):
         if self.db_conn is not None:
             panel = self.query_one(SidePanel)
             await panel.refresh_data(self.db_conn)
+
+    # ------------------------------------------------------------------
+    # Loop
+    # ------------------------------------------------------------------
+
+    @property
+    def loop_active(self) -> bool:
+        return self._loop_task is not None and not self._loop_task.done()
+
+    @property
+    def loop_interval(self) -> float:
+        return self._loop_interval
+
+    @property
+    def loop_prompt(self) -> str:
+        return self._loop_prompt
+
+    async def start_loop(self, interval: float, prompt: str) -> None:
+        """Start a recurring loop that executes *prompt* every *interval* seconds."""
+        self.stop_loop()
+        self._loop_prompt = prompt
+        self._loop_interval = interval
+        self._loop_task = asyncio.create_task(self._loop_runner())
+        self._update_loop_indicator()
+
+    def stop_loop(self) -> str:
+        """Cancel the running loop. Returns a status message."""
+        if self._loop_task is not None and not self._loop_task.done():
+            self._loop_task.cancel()
+            self._loop_task = None
+            self._loop_prompt = ""
+            self._loop_interval = 0.0
+            self._update_loop_indicator()
+            return "Loop stopped."
+        return "No loop is running."
+
+    async def _loop_runner(self) -> None:
+        """Core loop coroutine: sleep → wait for idle → execute prompt."""
+        msg_list = self.query_one(MessageList)
+        iteration = 0
+        try:
+            while True:
+                await asyncio.sleep(self._loop_interval)
+                iteration += 1
+
+                # Wait for any active user input to finish.
+                while self._busy:
+                    await asyncio.sleep(1.0)
+
+                msg_list.add_system_message(
+                    f"[dim]Loop iteration {iteration} — {self._loop_prompt}[/dim]"
+                )
+                await self._process_input(self._loop_prompt)
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:
+            logger.error("Loop runner failed: %s", exc, exc_info=True)
+            msg_list.add_system_message(f"[red]Loop stopped due to error: {exc}[/red]")
+        finally:
+            self._loop_task = None
+            self._loop_prompt = ""
+            self._loop_interval = 0.0
+            self._update_loop_indicator()
+
+    def _update_loop_indicator(self) -> None:
+        """Show or hide the loop status bar."""
+        from superinvestor.tui.commands import format_interval
+
+        try:
+            indicator = self.query_one("#loop-status", LoopStatus)
+        except Exception:
+            return
+        if self.loop_active:
+            indicator.update(
+                f"  ↻ Loop active: every {format_interval(self._loop_interval)}"
+                f" — {self._loop_prompt}"
+                f"  [dim](/loop stop to cancel)[/dim]"
+            )
+            indicator.display = True
+        else:
+            indicator.display = False
 
     # ------------------------------------------------------------------
     # Actions

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -210,6 +211,82 @@ async def cmd_history(app: SuperInvestorApp, args: str) -> CommandResult:
     return CommandResult(text=header + "\n".join(lines))
 
 
+_INTERVAL_RE = re.compile(r"^(\d+)\s*([smh])?$")
+_DEFAULT_INTERVAL = 600.0  # 10 minutes
+_MIN_INTERVAL = 10.0  # seconds
+
+
+def _parse_interval(token: str) -> float | None:
+    """Parse an interval string like ``5m``, ``30s``, ``1h`` to seconds."""
+    m = _INTERVAL_RE.match(token.strip().lower())
+    if m is None:
+        return None
+    value = int(m.group(1))
+    unit = m.group(2) or "m"
+    return float(value * {"s": 1, "m": 60, "h": 3600}[unit])
+
+
+def format_interval(seconds: float) -> str:
+    if seconds >= 3600:
+        return f"{seconds / 3600:.0f}h"
+    if seconds >= 60:
+        return f"{seconds / 60:.0f}m"
+    return f"{seconds:.0f}s"
+
+
+async def cmd_loop(app: SuperInvestorApp, args: str) -> CommandResult:
+    """Start, stop, or check a recurring loop."""
+    tokens = args.strip()
+
+    if not tokens:
+        return CommandResult(
+            text="Usage: /loop [interval] <prompt or /command>\n"
+            "       /loop stop\n"
+            "       /loop status\n"
+            "Default interval is 10m."
+        )
+
+    first_word = tokens.split()[0].lower()
+
+    if first_word in ("stop", "cancel"):
+        msg = app.stop_loop()
+        return CommandResult(text=msg)
+
+    if first_word == "status":
+        if app.loop_active:
+            return CommandResult(
+                text=f"Loop active: every {format_interval(app.loop_interval)}"
+                f" — {app.loop_prompt}"
+            )
+        return CommandResult(text="No loop is running.")
+
+    # Parse optional interval prefix.
+    parts = tokens.split(maxsplit=1)
+    interval = _parse_interval(parts[0])
+
+    if interval is not None:
+        prompt = parts[1] if len(parts) > 1 else ""
+    else:
+        interval = _DEFAULT_INTERVAL
+        prompt = tokens
+
+    if not prompt.strip():
+        return CommandResult(text="Usage: /loop [interval] <prompt or /command>")
+
+    # Guard against recursive loops.
+    inner_parsed = parse_command(prompt)
+    if inner_parsed and inner_parsed[0] == "loop":
+        return CommandResult(text="Cannot nest /loop inside /loop.")
+
+    if interval < _MIN_INTERVAL:
+        return CommandResult(text=f"Minimum loop interval is {_MIN_INTERVAL:.0f} seconds.")
+
+    await app.start_loop(interval, prompt)
+    return CommandResult(
+        text=f"Loop started: every {format_interval(interval)} — {prompt}"
+    )
+
+
 async def cmd_mcp(app: SuperInvestorApp, args: str) -> CommandResult:
     """Manage MCP server connections (add/list/remove)."""
     parts = args.strip().split()
@@ -304,5 +381,11 @@ COMMANDS: dict[str, CommandInfo] = {
         description="Manage MCP server connections",
         usage="/mcp <add|list|remove> ...",
         handler=cmd_mcp,
+    ),
+    "loop": CommandInfo(
+        name="loop",
+        description="Run a prompt/command on a recurring interval",
+        usage="/loop [interval] <prompt>",
+        handler=cmd_loop,
     ),
 }

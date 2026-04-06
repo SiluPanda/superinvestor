@@ -52,6 +52,38 @@ class ToolIndicator(Static):
     """
 
 
+class ThinkingIndicator(Static):
+    """Animated indicator shown while the model is processing."""
+
+    DEFAULT_CSS = """
+    ThinkingIndicator {
+        padding: 0 1;
+        color: #5f8787;
+    }
+    """
+
+    def __init__(self) -> None:
+        super().__init__("")
+        self._phase = False
+        self._label = "Thinking"
+
+    def on_mount(self) -> None:
+        self._render_frame()
+        self.set_interval(0.5, self._tick)
+
+    def _tick(self) -> None:
+        self._phase = not self._phase
+        self._render_frame()
+
+    def _render_frame(self) -> None:
+        dot = "■" if self._phase else "□"
+        self.update(f"  {dot} [dim]{self._label}[/dim]")
+
+    def set_label(self, label: str) -> None:
+        self._label = label
+        self._render_frame()
+
+
 class LoopStatus(Static):
     """Status bar shown when a recurring loop is active."""
 
@@ -101,6 +133,25 @@ class MessageList(VerticalScroll):
         self.mount(indicator)
         self.scroll_end(animate=False)
         return indicator
+
+    def show_thinking(self, label: str = "Thinking") -> ThinkingIndicator:
+        """Show or update the thinking indicator at the bottom."""
+        existing = self.query(ThinkingIndicator)
+        if existing:
+            indicator = existing.first()
+            indicator.set_label(label)
+            self.scroll_end(animate=False)
+            return indicator
+        indicator = ThinkingIndicator()
+        indicator.set_label(label)
+        self.mount(indicator)
+        self.scroll_end(animate=False)
+        return indicator
+
+    def hide_thinking(self) -> None:
+        """Remove the thinking indicator if present."""
+        for indicator in self.query(ThinkingIndicator):
+            indicator.remove()
 
     def clear_messages(self) -> None:
         """Remove all messages."""

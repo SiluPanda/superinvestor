@@ -24,6 +24,17 @@ from superinvestor.tui.widgets.side_panel import SidePanel
 
 logger = logging.getLogger(__name__)
 
+_DATA_TOOL_KEYWORDS = {"quote", "price", "ohlcv", "market", "filing", "edgar", "sec", "fred", "economic", "news"}
+
+
+def _tool_label(tool_name: str) -> str:
+    """Map a tool name to a human-readable action label."""
+    lower = tool_name.lower()
+    if any(kw in lower for kw in _DATA_TOOL_KEYWORDS):
+        return "Reading"
+    return "Computing"
+
+
 _WELCOME = (
     "Welcome to [bold]superinvestor[/bold]. "
     "Type a message to chat, or use /help to see commands."
@@ -213,6 +224,8 @@ class SuperInvestorApp(App[None]):
         accumulated = ""
         current_tool: ToolIndicator | None = None
 
+        msg_list.show_thinking("Thinking")
+
         try:
             async for event in self.session.send(text):
                 if event.kind.value == "agent_switch":
@@ -220,10 +233,13 @@ class SuperInvestorApp(App[None]):
                     if accumulated:
                         assistant_msg = None
                         accumulated = ""
+                    msg_list.hide_thinking()
                     msg_list.add_system_message(f"● {event.content}")
+                    msg_list.show_thinking("Analyzing")
                     current_tool = None
 
                 elif event.kind.value == "text_delta":
+                    msg_list.hide_thinking()
                     if assistant_msg is None:
                         assistant_msg = msg_list.add_assistant_message()
                     accumulated += event.content
@@ -231,24 +247,29 @@ class SuperInvestorApp(App[None]):
                     msg_list.scroll_end(animate=False)
 
                 elif event.kind.value == "tool_call":
-                    current_tool = msg_list.add_tool_indicator(event.tool_name or event.content)
+                    tool_name = event.tool_name or event.content
+                    msg_list.show_thinking(_tool_label(tool_name))
+                    current_tool = msg_list.add_tool_indicator(tool_name)
 
                 elif event.kind.value == "tool_result":
                     if current_tool is not None:
                         label = str(current_tool.render())
                         current_tool.update(label.replace("...", " done"))
                         current_tool = None
+                    msg_list.show_thinking("Thinking")
 
                 elif event.kind.value == "error":
+                    msg_list.hide_thinking()
                     msg_list.add_system_message(f"[red]Error: {event.content}[/red]")
 
                 elif event.kind.value == "done":
-                    pass  # Natural end of stream.
+                    msg_list.hide_thinking()
 
         except Exception as exc:
             logger.error("Error processing input: %s", exc, exc_info=True)
             msg_list.add_system_message(f"[red]Error: {exc}[/red]")
         finally:
+            msg_list.hide_thinking()
             self._busy = False
 
         # Refresh side panel after any command that might have changed data.

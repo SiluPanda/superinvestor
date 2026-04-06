@@ -4,6 +4,7 @@ from superinvestor.tui.widgets.message_list import (
     LoopStatus,
     MessageList,
     SystemMessage,
+    ThinkingIndicator,
     ToolIndicator,
     UserMessage,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "MessageList",
     "SidePanel",
     "SystemMessage",
+    "ThinkingIndicator",
     "ToolIndicator",
     "UserMessage",
 ]

@@ -141,7 +141,7 @@ class OpenRouterProvider:
         ]
 
         rounds = 0
-        while rounds <= _MAX_TOOL_ROUNDS:
+        while rounds < _MAX_TOOL_ROUNDS:
             rounds += 1
 
             accumulated_text = ""
@@ -259,7 +259,7 @@ class OpenRouterProvider:
         dispatch = tool_dispatch if tool_dispatch is not None else self._tools.dispatch
 
         rounds = 0
-        while rounds <= _MAX_TOOL_ROUNDS:
+        while rounds < _MAX_TOOL_ROUNDS:
             rounds += 1
 
             accumulated_text = ""

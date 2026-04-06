@@ -44,9 +44,9 @@ async def _analyze(ticker: str, stream: bool) -> None:
     from superinvestor.engine.pipeline import run_analysis, stream_analysis
     from superinvestor.models.enums import EventKind
 
-    stack = create_stack()
-
+    stack = None
     try:
+        stack = create_stack()
         if stream:
             console.print(f"\n[bold]Analyzing {ticker}...[/bold]\n")
             async for event in stream_analysis(
@@ -85,7 +85,8 @@ async def _analyze(ticker: str, stream: bool) -> None:
                 if len(result.reasoning_steps) > 10:
                     console.print(f"  [dim]... and {len(result.reasoning_steps) - 10} more[/dim]")
     finally:
-        await stack.close()
+        if stack is not None:
+            await stack.close()
 
 
 @app.command()

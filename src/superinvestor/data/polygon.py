@@ -130,16 +130,18 @@ class PolygonProvider:
         bar = results[0]
         close = Decimal(str(bar.get("c", 0)))
         open_price = Decimal(str(bar.get("o", 0)))
+        change = close - open_price
+        change_percent = (change / open_price * 100) if open_price else Decimal("0")
 
         return Quote(
             ticker=bar.get("T", ticker.upper()),
             price=close,
-            change=Decimal("0"),
-            change_percent=Decimal("0"),
+            change=change,
+            change_percent=change_percent,
             open=open_price,
             high=Decimal(str(bar.get("h", 0))),
             low=Decimal(str(bar.get("l", 0))),
-            previous_close=Decimal("0"),
+            previous_close=open_price,
             volume=int(bar.get("v", 0)),
             timestamp=self._ms_to_datetime(int(bar.get("t", 0))),
         )

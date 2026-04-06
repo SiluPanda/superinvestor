@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import xml.etree.ElementTree as ET
@@ -83,6 +84,7 @@ class EdgarProvider:
         self._limiter = RateLimiter(calls_per_period=rate_limit, period_seconds=1.0)
         # Lazily populated ticker -> CIK mapping.
         self._ticker_cik_map: dict[str, str] | None = None
+        self._cik_map_lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
     # Internal HTTP helpers
@@ -114,15 +116,16 @@ class EdgarProvider:
         Uses the SEC ``company_tickers.json`` endpoint and caches the
         mapping in memory for subsequent calls.
         """
-        if self._ticker_cik_map is None:
-            data = await self._get_json(_COMPANY_TICKERS_URL)
-            mapping: dict[str, str] = {}
-            for entry in data.values():
-                t = str(entry.get("ticker", "")).upper()
-                cik_str = str(entry.get("cik_str", ""))
-                if t and cik_str:
-                    mapping[t] = cik_str
-            self._ticker_cik_map = mapping
+        async with self._cik_map_lock:
+            if self._ticker_cik_map is None:
+                data = await self._get_json(_COMPANY_TICKERS_URL)
+                mapping: dict[str, str] = {}
+                for entry in data.values():
+                    t = str(entry.get("ticker", "")).upper()
+                    cik_str = str(entry.get("cik_str", ""))
+                    if t and cik_str:
+                        mapping[t] = cik_str
+                self._ticker_cik_map = mapping
 
         normalised = ticker.strip().upper()
         cik = self._ticker_cik_map.get(normalised)

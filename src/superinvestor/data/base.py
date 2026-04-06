@@ -18,6 +18,7 @@ class RateLimiter:
         self._lock = asyncio.Lock()
 
     async def acquire(self) -> None:
+        wait_time = 0.0
         async with self._lock:
             now = time.monotonic()
             elapsed = now - self._last_refill
@@ -26,11 +27,15 @@ class RateLimiter:
 
             if self._tokens < 1.0:
                 wait_time = (1.0 - self._tokens) / self._refill_rate
-                await asyncio.sleep(wait_time)
-                self._last_refill = time.monotonic()
-                self._tokens = 0.0
             else:
                 self._tokens -= 1.0
+
+        # Sleep outside the lock so other callers are not blocked.
+        if wait_time:
+            await asyncio.sleep(wait_time)
+            async with self._lock:
+                self._last_refill = time.monotonic()
+                self._tokens = 0.0
 
 
 def create_http_client(

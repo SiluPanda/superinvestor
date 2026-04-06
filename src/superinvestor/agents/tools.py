@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from superinvestor.data.edgar import EdgarProvider
 from superinvestor.data.fred import FredProvider
@@ -36,6 +39,7 @@ class DomainTools:
             result = await handler(**args)
             return result if isinstance(result, str) else json.dumps(result)
         except Exception as e:
+            logger.warning("Tool %s failed: %s", tool_name, e, exc_info=True)
             return json.dumps({"error": str(e)})
 
     # ------------------------------------------------------------------

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
@@ -12,6 +13,17 @@ from pydantic import BaseModel
 from superinvestor.models.base import utc_now
 
 T = TypeVar("T", bound=BaseModel)
+
+_SAFE_ORDER_BY = re.compile(
+    r"^[a-zA-Z_][a-zA-Z0-9_]*(\s+(ASC|DESC))?(\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*(\s+(ASC|DESC))?)*$",
+    re.IGNORECASE,
+)
+
+
+def _validate_order_by(order_by: str) -> str:
+    if not _SAFE_ORDER_BY.match(order_by.strip()):
+        raise ValueError(f"Invalid ORDER BY clause: {order_by!r}")
+    return order_by
 
 
 class BaseStore(Generic[T]):
@@ -167,7 +179,7 @@ class BaseStore(Generic[T]):
         sql = f"SELECT * FROM {self._table}"  # noqa: S608
         if where:
             sql += f" WHERE {where}"
-        sql += f" ORDER BY {order_by} LIMIT ? OFFSET ?"
+        sql += f" ORDER BY {_validate_order_by(order_by)} LIMIT ? OFFSET ?"
         cursor = await self._db.execute(sql, (*params, limit, offset))
         rows = await cursor.fetchall()
         return [self._from_row(r) for r in rows]

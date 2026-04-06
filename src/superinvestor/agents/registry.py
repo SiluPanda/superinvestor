@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from superinvestor.agents.providers.anthropic import AnthropicProvider
 from superinvestor.agents.tools import DomainTools
@@ -10,6 +11,7 @@ from superinvestor.data.fred import FredProvider
 from superinvestor.data.polygon import PolygonProvider
 from superinvestor.models.enums import ProviderName
 
+# Optional providers — only available when the 'openai' package is installed.
 try:
     from superinvestor.agents.providers.openrouter import OpenRouterProvider
 except ImportError:
@@ -19,6 +21,10 @@ try:
     from superinvestor.agents.providers.deepinfra import DeepInfraProvider
 except ImportError:
     DeepInfraProvider = None  # type: ignore[misc,assignment]
+
+if TYPE_CHECKING:
+    from superinvestor.agents.providers.openrouter import OpenRouterProvider
+    from superinvestor.agents.providers.deepinfra import DeepInfraProvider
 
 
 @dataclass
@@ -32,7 +38,7 @@ class DataStack:
     edgar: EdgarProvider
     fred: FredProvider
     tools: DomainTools
-    provider: AnthropicProvider | OpenRouterProvider  # type: ignore[type-arg]
+    provider: AnthropicProvider | OpenRouterProvider | DeepInfraProvider  # type: ignore[type-arg]
 
     async def close(self) -> None:
         """Shut down all data-provider HTTP clients."""
@@ -43,7 +49,7 @@ class DataStack:
 
 async def create_provider(
     settings: Settings | None = None,
-) -> AnthropicProvider | OpenRouterProvider:  # type: ignore[type-arg]
+) -> AnthropicProvider | OpenRouterProvider | DeepInfraProvider:  # type: ignore[type-arg]
     """Create and return the configured agent provider.
 
     Instantiates the data providers and wires them into ``DomainTools``,
@@ -80,7 +86,7 @@ def create_stack(settings: Settings | None = None) -> DataStack:
                 "Run 'superinvestor configure' to set it up, or set the "
                 "SUPERINVESTOR_ANTHROPIC_API_KEY environment variable."
             )
-        provider: AnthropicProvider | OpenRouterProvider = AnthropicProvider(  # type: ignore[type-arg]
+        provider: AnthropicProvider | OpenRouterProvider | DeepInfraProvider = AnthropicProvider(  # type: ignore[type-arg]
             api_key=s.anthropic_api_key,
             model=s.claude_model,
             tools=tools,

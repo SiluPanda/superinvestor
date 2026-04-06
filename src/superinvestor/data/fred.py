@@ -76,7 +76,10 @@ class FredProvider:
             "/series",
             params={"series_id": series_id},
         )
-        raw = data["seriess"][0]
+        seriess = data.get("seriess", [])
+        if not seriess:
+            raise FredError(404, f"Series not found: {series_id!r}")
+        raw = seriess[0]
         return FredSeries(
             series_id=raw["id"],
             title=raw["title"],

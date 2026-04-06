@@ -133,9 +133,9 @@ class TestGetQuote:
         assert quote.open == Decimal("173.0")
         assert quote.high == Decimal("176.5")
         assert quote.volume == 55000000
-        assert quote.previous_close == Decimal("0")
-        assert quote.change == Decimal("0")
-        assert quote.change_percent == Decimal("0")
+        assert quote.previous_close == Decimal("173.0")
+        assert quote.change == Decimal("2.5")
+        assert quote.change_percent == Decimal("2.5") / Decimal("173.0") * 100
 
     @pytest.mark.asyncio
     async def test_get_quote_not_found(self, provider: PolygonProvider) -> None:

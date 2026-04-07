@@ -92,7 +92,6 @@ class SuperInvestorApp(App[None]):
     }
 
     ThinkingIndicator {
-        dock: bottom;
         height: auto;
         padding: 0 2;
         color: #5f8787;
@@ -100,7 +99,6 @@ class SuperInvestorApp(App[None]):
     }
 
     LoopStatus {
-        dock: bottom;
         height: auto;
         padding: 0 2;
         color: #5f8787;
@@ -218,7 +216,7 @@ class SuperInvestorApp(App[None]):
             return
 
         # Show user message in chat.
-        msg_list.add_user_message(text)
+        await msg_list.add_user_message(text)
 
         # Dispatch to session in a worker to keep UI responsive.
         self.run_worker(self._process_input(text), exclusive=True)
@@ -244,14 +242,14 @@ class SuperInvestorApp(App[None]):
                     if accumulated:
                         assistant_msg = None
                         accumulated = ""
-                    msg_list.add_system_message(f"● {event.content}")
+                    await msg_list.add_system_message(f"● {event.content}")
                     thinking.show("Analyzing")
                     current_tool = None
 
                 elif event.kind.value == "text_delta":
                     thinking.hide()
                     if assistant_msg is None:
-                        assistant_msg = msg_list.add_assistant_message()
+                        assistant_msg = await msg_list.add_assistant_message()
                     accumulated += event.content
                     assistant_msg.update(accumulated)
                     msg_list.scroll_end(animate=False)
@@ -259,7 +257,7 @@ class SuperInvestorApp(App[None]):
                 elif event.kind.value == "tool_call":
                     tool_name = event.tool_name or event.content
                     thinking.show(_tool_label(tool_name))
-                    current_tool = msg_list.add_tool_indicator(tool_name)
+                    current_tool = await msg_list.add_tool_indicator(tool_name)
 
                 elif event.kind.value == "tool_result":
                     if current_tool is not None:
@@ -270,14 +268,14 @@ class SuperInvestorApp(App[None]):
 
                 elif event.kind.value == "error":
                     thinking.hide()
-                    msg_list.add_system_message(f"[red]Error: {event.content}[/red]")
+                    await msg_list.add_system_message(f"[red]Error: {event.content}[/red]")
 
                 elif event.kind.value == "done":
                     thinking.hide()
 
         except Exception as exc:
             logger.error("Error processing input: %s", exc, exc_info=True)
-            msg_list.add_system_message(
+            await msg_list.add_system_message(
                 f"[red]Error ({type(exc).__name__}): {exc}[/red]"
             )
         finally:
@@ -340,7 +338,7 @@ class SuperInvestorApp(App[None]):
                 while self._busy:
                     await asyncio.sleep(1.0)
 
-                msg_list.add_system_message(
+                await msg_list.add_system_message(
                     f"[dim]Loop iteration {iteration} — {self._loop_prompt}[/dim]"
                 )
                 await self._process_input(self._loop_prompt)
@@ -348,7 +346,7 @@ class SuperInvestorApp(App[None]):
             pass
         except Exception as exc:
             logger.error("Loop runner failed: %s", exc, exc_info=True)
-            msg_list.add_system_message(f"[red]Loop stopped due to error: {exc}[/red]")
+            await msg_list.add_system_message(f"[red]Loop stopped due to error: {exc}[/red]")
         finally:
             self._loop_task = None
             self._loop_prompt = ""

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from textual.containers import VerticalScroll
-from textual.widgets import Static
+from textual.widgets import Markdown, Static
 
 
 class UserMessage(Static):
@@ -16,8 +16,8 @@ class UserMessage(Static):
     """
 
 
-class AssistantMessage(Static):
-    """An assistant message that supports streaming updates."""
+class AssistantMessage(Markdown):
+    """An assistant message that supports streaming updates with rendered markdown."""
 
     DEFAULT_CSS = """
     AssistantMessage {
@@ -65,25 +65,26 @@ class ThinkingIndicator(Static):
 
     def __init__(self, id: str | None = None) -> None:  # noqa: A002
         super().__init__("", id=id)
-        self._phase = False
+        self._phase = 0
         self._label = "Thinking"
 
     def on_mount(self) -> None:
-        self.set_interval(0.5, self._tick)
+        self.set_interval(0.12, self._tick)
 
     def _tick(self) -> None:
         if self.display:
-            self._phase = not self._phase
+            self._phase = (self._phase + 1) % 3
             self._render_frame()
 
     def _render_frame(self) -> None:
-        dot = "■" if self._phase else "□"
-        self.update(f"  {dot} [dim]{self._label}[/dim]")
+        dot = "■" if self._phase == 0 else "□"
+        dots = "." * (self._phase + 1)
+        self.update(f"  {dot} [dim]{self._label}{dots}[/dim]")
 
     def show(self, label: str = "Thinking") -> None:
         """Show the indicator with the given label."""
         self._label = label
-        self._phase = True
+        self._phase = 0
         self._render_frame()
         self.display = True
 
@@ -114,31 +115,31 @@ class MessageList(VerticalScroll):
     }
     """
 
-    def add_user_message(self, text: str) -> UserMessage:
+    async def add_user_message(self, text: str) -> UserMessage:
         """Add a user message and scroll to bottom."""
         msg = UserMessage(f"[bold]> {text}[/bold]")
-        self.mount(msg)
+        await self.mount(msg)
         self.scroll_end(animate=False)
         return msg
 
-    def add_assistant_message(self) -> AssistantMessage:
+    async def add_assistant_message(self) -> AssistantMessage:
         """Add an empty assistant message widget for streaming. Returns handle."""
         msg = AssistantMessage("")
-        self.mount(msg)
+        await self.mount(msg)
         self.scroll_end(animate=False)
         return msg
 
-    def add_system_message(self, text: str) -> SystemMessage:
+    async def add_system_message(self, text: str) -> SystemMessage:
         """Add a system/status message."""
         msg = SystemMessage(text)
-        self.mount(msg)
+        await self.mount(msg)
         self.scroll_end(animate=False)
         return msg
 
-    def add_tool_indicator(self, tool_name: str) -> ToolIndicator:
+    async def add_tool_indicator(self, tool_name: str) -> ToolIndicator:
         """Add a tool call indicator."""
         indicator = ToolIndicator(f"  ├ {tool_name}...")
-        self.mount(indicator)
+        await self.mount(indicator)
         self.scroll_end(animate=False)
         return indicator
 

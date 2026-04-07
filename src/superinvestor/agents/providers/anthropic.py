@@ -213,7 +213,7 @@ class AnthropicProvider:
                             current_tool = None
 
                 # Get the full response for message history.
-                final_message = stream.get_final_message()
+                final_message = await stream.get_final_message()
                 stop_reason = final_message.stop_reason
                 response_content = list(final_message.content)
 
@@ -346,7 +346,7 @@ class AnthropicProvider:
                             current_tool = None
 
                 # Get the full response for message history.
-                final_message = stream.get_final_message()
+                final_message = await stream.get_final_message()
                 stop_reason = final_message.stop_reason
                 response_content = list(final_message.content)
 
